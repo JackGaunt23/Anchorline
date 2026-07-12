@@ -1,0 +1,328 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Anchorline design tokens — ported verbatim from the mockup.
+   Semantic CSS variables swap for dark mode via prefers-color-scheme,
+   with an explicit data-theme override winning in both directions.
+   Tailwind utilities map onto them through @theme inline below.
+   ============================================================ */
+
+:root {
+  --surface-page: #eef2f0;
+  --surface-card: #ffffff;
+  --surface-sunken: #f5f6f4;
+  --ink: #10181c;
+  --ink-secondary: #52605f;
+  --ink-muted: #8a9491;
+  --hairline: rgba(16, 24, 28, 0.1);
+  --hairline-strong: rgba(16, 24, 28, 0.16);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 28, 0.05);
+  --shadow-md: 0 10px 30px rgba(16, 24, 28, 0.08);
+
+  --teal: #00969a;
+  --teal-soft: rgba(0, 150, 154, 0.12);
+  --gold: #b8933a;
+  --gold-soft: rgba(184, 147, 58, 0.14);
+  --slate: #2e5fa8;
+  --slate-soft: rgba(46, 95, 168, 0.12);
+
+  --good: #0ca30c;
+  --good-soft: rgba(12, 163, 12, 0.12);
+  --warning: #a86a00;
+  --warning-soft: rgba(250, 178, 25, 0.18);
+  --critical: #d03b3b;
+  --critical-soft: rgba(208, 59, 59, 0.11);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-page: #0c1114;
+    --surface-card: #151d22;
+    --surface-sunken: #10171b;
+    --ink: #f4f6f5;
+    --ink-secondary: #c3cbc9;
+    --ink-muted: #7c8a88;
+    --hairline: rgba(255, 255, 255, 0.09);
+    --hairline-strong: rgba(255, 255, 255, 0.15);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
+
+    --teal: #1fa8a8;
+    --teal-soft: rgba(31, 168, 168, 0.16);
+    --gold: #b8873a;
+    --gold-soft: rgba(184, 135, 58, 0.18);
+    --slate: #5c87c4;
+    --slate-soft: rgba(92, 135, 196, 0.16);
+
+    --good: #0ca30c;
+    --good-soft: rgba(12, 163, 12, 0.16);
+    --warning: #fab219;
+    --warning-soft: rgba(250, 178, 25, 0.14);
+    --critical: #e2635f;
+    --critical-soft: rgba(226, 99, 95, 0.14);
+  }
+}
+
+:root[data-theme="dark"] {
+  --surface-page: #0c1114;
+  --surface-card: #151d22;
+  --surface-sunken: #10171b;
+  --ink: #f4f6f5;
+  --ink-secondary: #c3cbc9;
+  --ink-muted: #7c8a88;
+  --hairline: rgba(255, 255, 255, 0.09);
+  --hairline-strong: rgba(255, 255, 255, 0.15);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --teal: #1fa8a8;
+  --teal-soft: rgba(31, 168, 168, 0.16);
+  --gold: #b8873a;
+  --gold-soft: rgba(184, 135, 58, 0.18);
+  --slate: #5c87c4;
+  --slate-soft: rgba(92, 135, 196, 0.16);
+  --good: #0ca30c;
+  --good-soft: rgba(12, 163, 12, 0.16);
+  --warning: #fab219;
+  --warning-soft: rgba(250, 178, 25, 0.14);
+  --critical: #e2635f;
+  --critical-soft: rgba(226, 99, 95, 0.14);
+}
+
+:root[data-theme="light"] {
+  --surface-page: #eef2f0;
+  --surface-card: #ffffff;
+  --surface-sunken: #f5f6f4;
+  --ink: #10181c;
+  --ink-secondary: #52605f;
+  --ink-muted: #8a9491;
+  --hairline: rgba(16, 24, 28, 0.1);
+  --hairline-strong: rgba(16, 24, 28, 0.16);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 28, 0.05);
+  --shadow-md: 0 10px 30px rgba(16, 24, 28, 0.08);
+  --teal: #00969a;
+  --teal-soft: rgba(0, 150, 154, 0.12);
+  --gold: #b8933a;
+  --gold-soft: rgba(184, 147, 58, 0.14);
+  --slate: #2e5fa8;
+  --slate-soft: rgba(46, 95, 168, 0.12);
+  --good: #0ca30c;
+  --good-soft: rgba(12, 163, 12, 0.12);
+  --warning: #a86a00;
+  --warning-soft: rgba(250, 178, 25, 0.18);
+  --critical: #d03b3b;
+  --critical-soft: rgba(208, 59, 59, 0.11);
+}
+
+@theme inline {
+  --color-page: var(--surface-page);
+  --color-card: var(--surface-card);
+  --color-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-slate: var(--slate);
+  --color-slate-soft: var(--slate-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-critical: var(--critical);
+  --color-critical-soft: var(--critical-soft);
+
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-float: var(--shadow-md);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+body {
+  background: var(--surface-page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   Component styles ported from the mockup that don't map
+   cleanly onto utilities (charts, tables, animations).
+   ============================================================ */
+
+.toast-in {
+  animation: toast-in 180ms ease;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-in {
+    animation: none;
+  }
+}
+
+/* KPI tile pulse after a sync */
+.kpi-pulse {
+  box-shadow: 0 0 0 3px var(--teal-soft) !important;
+}
+
+/* Chart tooltips (recharts custom content) */
+.chart-tooltip {
+  background: var(--ink);
+  color: var(--surface-card);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-size: 12px;
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+}
+.chart-tooltip .tooltip-title {
+  color: color-mix(in srgb, var(--surface-card) 70%, transparent);
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+.chart-tooltip .tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.chart-tooltip .tooltip-row + .tooltip-row {
+  margin-top: 3px;
+}
+.chart-tooltip .tooltip-key {
+  width: 9px;
+  height: 2px;
+  border-radius: 2px;
+  flex: none;
+}
+.chart-tooltip .tooltip-val {
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.chart-tooltip .tooltip-name {
+  color: color-mix(in srgb, var(--surface-card) 75%, transparent);
+}
+
+/* Accessible data tables behind the "View as table" toggles */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.data-table th {
+  text-align: right;
+  font-weight: 600;
+  color: var(--ink-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.data-table td {
+  text-align: right;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.data-table th:first-child,
+.data-table td:first-child {
+  text-align: left;
+  font-family: var(--font-sans);
+}
+
+/* Producer performance table */
+.producer-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+}
+.producer-table thead th {
+  text-align: right;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  font-weight: 700;
+  padding: 8px 12px 10px;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+.producer-table thead th:nth-child(-n + 2) {
+  text-align: left;
+}
+.producer-table tbody td {
+  padding: 12px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  border-bottom: 1px solid var(--hairline);
+}
+.producer-table tbody td:nth-child(-n + 2) {
+  text-align: left;
+  font-family: var(--font-sans);
+}
+.producer-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Leaderboard medals */
+.medal {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+}
+.medal.g1 {
+  background: linear-gradient(160deg, #f3d16b, #c99a2d);
+  color: #3a2c05;
+}
+.medal.g2 {
+  background: linear-gradient(160deg, #dfe3e6, #a9b0b5);
+  color: #2b2f31;
+}
+.medal.g3 {
+  background: linear-gradient(160deg, #d9a06c, #a9673a);
+  color: #3a2408;
+}
+
+/* Recharts axis text */
+.recharts-cartesian-axis-tick text,
+.chart-axis-label {
+  fill: var(--ink-muted);
+  font-size: 9.5px;
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--teal-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}

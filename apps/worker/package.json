@@ -1,0 +1,23 @@
+{
+  "name": "@anchorline/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anchorline/db": "workspace:*",
+    "@anchorline/providers": "workspace:*",
+    "dotenv": "^16.5.0",
+    "node-cron": "^3.0.3",
+    "tsx": "^4.20.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.3",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5.8.3"
+  }
+}

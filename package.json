@@ -1,0 +1,19 @@
+{
+  "name": "anchorline",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:web": "pnpm --filter @anchorline/web dev",
+    "dev:worker": "pnpm --filter @anchorline/worker dev",
+    "db:generate": "pnpm --filter @anchorline/db generate",
+    "db:migrate": "pnpm --filter @anchorline/db migrate:dev",
+    "db:deploy": "pnpm --filter @anchorline/db migrate:deploy",
+    "db:seed": "pnpm --filter @anchorline/db seed",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

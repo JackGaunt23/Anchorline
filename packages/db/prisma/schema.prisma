@@ -1,0 +1,311 @@
+// Anchorline database schema.
+//
+// Conventions:
+// - Single tenant today, multi-tenant-ready: every domain table carries
+//   agencyId and all queries are scoped by it. No tenant onboarding exists.
+// - Money is integer cents. All timestamps are UTC (timestamptz); rendering
+//   converts to the agency timezone.
+// - Synced entities keep the provider payload in a `raw` jsonb column so new
+//   derived fields can be backfilled without re-fetching (upstream APIs do
+//   not retain data forever).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  timezone  String   @default("America/New_York")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users             User[]
+  producers         ProducerIdentityMap[]
+  calls             Call[]
+  callTranscripts   CallTranscript[]
+  callScores        CallScore[]
+  leads             Lead[]
+  quotes            Quote[]
+  policiesSold      PolicySold[]
+  syncRuns          SyncRun[]
+  jobs              Job[]
+  dailySummaries    DailySummary[]
+
+  @@map("agencies")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  agencyId     String   @map("agency_id")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+
+  @@map("users")
+}
+
+/// The only join path between RingCentral extensions and AgencyZoom
+/// producers. Managed in Settings. Calls from unmapped extensions still sync
+/// and surface in an "Unmapped" bucket.
+model ProducerIdentityMap {
+  id            String   @id @default(cuid())
+  agencyId      String   @map("agency_id")
+  displayName   String   @map("display_name")
+  roleTitle     String   @default("Producer") @map("role_title")
+  rcExtensionId String?  @map("rc_extension_id")
+  azProducerId  String?  @map("az_producer_id")
+  /// Manual flag: producer is intentionally ramping (drives the Ramping badge).
+  isRamping     Boolean  @default(false) @map("is_ramping")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+
+  @@unique([agencyId, rcExtensionId])
+  @@unique([agencyId, azProducerId])
+  @@map("producer_identity_map")
+}
+
+model Call {
+  id                  String   @id @default(cuid())
+  agencyId            String   @map("agency_id")
+  rcSessionId         String   @map("rc_session_id")
+  rcExtensionId       String?  @map("rc_extension_id")
+  direction           String
+  startTime           DateTime @map("start_time")
+  durationSeconds     Int      @map("duration_seconds")
+  result              String?
+  fromNumber          String?  @map("from_number")
+  toNumber            String?  @map("to_number")
+  hasRecording        Boolean  @default(false) @map("has_recording")
+  recordingContentUri String?  @map("recording_content_uri")
+  raw                 Json?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  agency     Agency          @relation(fields: [agencyId], references: [id])
+  transcript CallTranscript?
+  score      CallScore?
+
+  @@unique([agencyId, rcSessionId])
+  @@index([agencyId, startTime])
+  @@index([agencyId, rcExtensionId, startTime])
+  @@map("calls")
+}
+
+enum TranscriptStatus {
+  pending
+  processing
+  done
+  failed
+}
+
+model CallTranscript {
+  id             String           @id @default(cuid())
+  agencyId       String           @map("agency_id")
+  callId         String           @unique @map("call_id")
+  provider       String
+  transcriptText String?          @map("transcript_text")
+  status         TranscriptStatus @default(pending)
+  error          String?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  call   Call   @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId, status])
+  @@map("call_transcripts")
+}
+
+model CallScore {
+  id                String   @id @default(cuid())
+  agencyId          String   @map("agency_id")
+  callId            String   @unique @map("call_id")
+  score             Int      @map("score_0_100")
+  rapport           Boolean
+  discovery         Boolean
+  quotePresented    Boolean  @map("quote_presented")
+  objectionHandling Boolean  @map("objection_handling")
+  closeAttempted    Boolean  @map("close_attempted")
+  summaryText       String   @map("summary_text")
+  model             String
+  promptVersion     String   @map("prompt_version")
+  raw               Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  call   Call   @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId, createdAt])
+  @@map("call_scores")
+}
+
+/// AgencyZoom lead statuses: 0 NEW, 1 QUOTED, 2 WON, 3 LOST, 4 CONTACTED, 5 EXPIRED
+model Lead {
+  id                 String    @id @default(cuid())
+  agencyId           String    @map("agency_id")
+  azLeadId           String    @map("az_lead_id")
+  azProducerId       String?   @map("az_producer_id")
+  statusCode         Int       @map("status_code")
+  status             String
+  source             String?
+  createDate         DateTime? @map("create_date")
+  contactDate        DateTime? @map("contact_date")
+  quoteDate          DateTime? @map("quote_date")
+  soldDate           DateTime? @map("sold_date")
+  lastActivityDate   DateTime? @map("last_activity_date")
+  quotedPremiumCents Int?      @map("quoted_premium_cents")
+  soldPremiumCents   Int?      @map("sold_premium_cents")
+  raw                Json?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  agency       Agency       @relation(fields: [agencyId], references: [id])
+  quotes       Quote[]
+  policiesSold PolicySold[]
+
+  @@unique([agencyId, azLeadId])
+  @@index([agencyId, lastActivityDate])
+  @@index([agencyId, soldDate])
+  @@map("leads")
+}
+
+model Quote {
+  id           String   @id @default(cuid())
+  agencyId     String   @map("agency_id")
+  azQuoteId    String   @map("az_quote_id")
+  leadId       String   @map("lead_id")
+  azProducerId String?  @map("az_producer_id")
+  productLine  String?  @map("product_line")
+  carrier      String?
+  premiumCents Int?     @map("premium_cents")
+  sold         Boolean  @default(false)
+  /// AgencyZoom quotes carry no timestamp: this is the lead's quoteDate when
+  /// present, else firstSeenAt (when our sync first observed the quote).
+  quotedAt     DateTime @map("quoted_at")
+  firstSeenAt  DateTime @map("first_seen_at")
+  raw          Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyId, azQuoteId])
+  @@index([agencyId, quotedAt])
+  @@index([agencyId, azProducerId, quotedAt])
+  @@map("quotes")
+}
+
+model PolicySold {
+  id            String    @id @default(cuid())
+  agencyId      String    @map("agency_id")
+  leadId        String    @map("lead_id")
+  azProducerId  String?   @map("az_producer_id")
+  productLine   String    @default("unknown") @map("product_line")
+  premiumCents  Int       @map("premium_cents")
+  soldDate      DateTime  @map("sold_date")
+  effectiveDate DateTime? @map("effective_date")
+  policyNumber  String?   @map("policy_number")
+  raw           Json?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyId, leadId, productLine])
+  @@index([agencyId, soldDate])
+  @@index([agencyId, azProducerId, soldDate])
+  @@map("policies_sold")
+}
+
+enum SyncSource {
+  ringcentral
+  agencyzoom
+}
+
+enum SyncStatus {
+  running
+  success
+  failed
+}
+
+model SyncRun {
+  id              String     @id @default(cuid())
+  agencyId        String     @map("agency_id")
+  source          SyncSource
+  status          SyncStatus @default(running)
+  startedAt       DateTime   @default(now()) @map("started_at")
+  finishedAt      DateTime?  @map("finished_at")
+  watermarkFrom   DateTime?  @map("watermark_from")
+  watermarkTo     DateTime?  @map("watermark_to")
+  recordsUpserted Int        @default(0) @map("records_upserted")
+  error           String?
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+
+  @@index([agencyId, source, startedAt])
+  @@map("sync_runs")
+}
+
+enum JobStatus {
+  queued
+  running
+  done
+  failed
+}
+
+/// Simple DB-backed job queue. The worker claims rows with
+/// FOR UPDATE SKIP LOCKED; runAt supports scheduling and retry backoff.
+model Job {
+  id          String    @id @default(cuid())
+  agencyId    String    @map("agency_id")
+  type        String
+  payload     Json?
+  status      JobStatus @default(queued)
+  runAt       DateTime  @default(now()) @map("run_at")
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3) @map("max_attempts")
+  lastError   String?   @map("last_error")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+
+  @@index([status, runAt])
+  @@map("jobs")
+}
+
+model DailySummary {
+  id          String   @id @default(cuid())
+  agencyId    String   @map("agency_id")
+  forDate     DateTime @map("for_date") @db.Date
+  summaryText String   @map("summary_text")
+  /// Exactly three insight cards: [{ producer, text, tone: good|warning|info }]
+  insights    Json
+  model       String
+  generatedAt DateTime @default(now()) @map("generated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+
+  @@index([agencyId, forDate])
+  @@map("daily_summaries")
+}

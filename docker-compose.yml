@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: anchorline-postgres
+    environment:
+      POSTGRES_USER: anchorline
+      POSTGRES_PASSWORD: anchorline
+      POSTGRES_DB: anchorline
+    ports:
+      - "5432:5432"
+    volumes:
+      - anchorline_pgdata:/var/lib/postgresql/data
+
+volumes:
+  anchorline_pgdata:

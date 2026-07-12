@@ -1,0 +1,33 @@
+{
+  "name": "@anchorline/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anchorline/db": "workspace:*",
+    "@anchorline/metrics": "workspace:*",
+    "@anchorline/providers": "workspace:*",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.5.0",
+    "next": "^15.3.4",
+    "next-auth": "5.0.0-beta.29",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "recharts": "^3.9.2",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.10",
+    "@types/node": "^24.0.3",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.10",
+    "typescript": "^5.8.3"
+  }
+}
