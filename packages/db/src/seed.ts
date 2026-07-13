@@ -295,10 +295,13 @@ async function main() {
     })),
   };
   const summary = buildDemoSummary(stats, 0);
+  // Same for_date convention as the generate_daily_summary job: the current
+  // date in the agency's time zone (en-CA formats as YYYY-MM-DD).
+  const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: agency.timezone, dateStyle: "short" }).format(now);
   await prisma.dailySummary.create({
     data: {
       agencyId: agency.id,
-      forDate: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+      forDate: new Date(`${localDate}T00:00:00Z`),
       summaryText: summary.summaryText,
       insights: summary.insights as unknown as Prisma.InputJsonValue,
       model: DEMO_MODEL,

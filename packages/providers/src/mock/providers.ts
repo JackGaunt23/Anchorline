@@ -5,7 +5,12 @@
 
 import type {
   CallProvider,
+  CallScorer,
   CrmProvider,
+  GeneratedSummary,
+  ScoredCall,
+  SummaryGenerator,
+  SummaryStats,
   TranscriptionProvider,
   ListCallsQuery,
   ListLeadsQuery,
@@ -15,7 +20,15 @@ import type {
   NormalizedProducer,
   ProviderStatus,
 } from "../types";
-import { generateDemoDataset, type DemoDataset, type DemoPolicy, type DemoScoredCall } from "./dataset";
+import {
+  buildDemoSummary,
+  generateDemoDataset,
+  DEMO_MODEL,
+  DEMO_PROMPT_VERSION,
+  type DemoDataset,
+  type DemoPolicy,
+  type DemoScoredCall,
+} from "./dataset";
 import { mulberry32, randInt } from "./prng";
 import { PRODUCERS } from "./fixtures";
 import { generateTranscript, generateSummary, SCRIPTED_TRANSCRIPTS } from "./transcripts";
@@ -183,6 +196,51 @@ export class MockScorer {
       close: rng() < (score >= 65 ? 0.85 : 0.3),
     };
     return { score, steps, summary: generateSummary(rng, steps) };
+  }
+}
+
+/**
+ * CallScorer adapter over MockScorer for the demo scoring pipeline: fixture
+ * scorecards resolved by rcSessionId, no Anthropic key required. The scripted
+ * calls reproduce the exact seeded scores, so a demo pipeline re-run is a
+ * byte-identical no-op.
+ */
+export class MockCallScorer implements CallScorer {
+  private readonly scorer = new MockScorer();
+
+  async scoreCall(input: { transcript: string; rcSessionId: string }): Promise<ScoredCall> {
+    const scored = this.scorer.score(input.rcSessionId);
+    if (!scored) throw new Error(`MockCallScorer: no fixture score for ${input.rcSessionId}`);
+    return {
+      result: {
+        score: scored.score,
+        rapport: scored.steps.rapport,
+        discovery_questions: scored.steps.discovery,
+        quote_presented: scored.steps.quote,
+        objection_handling: scored.steps.objection,
+        close_attempted: scored.steps.close,
+        summary: scored.summary,
+      },
+      model: DEMO_MODEL,
+      promptVersion: DEMO_PROMPT_VERSION,
+    };
+  }
+}
+
+/**
+ * Demo daily-summary generator: builds the three deterministic variants from
+ * real DB aggregates and rotates to the one after whichever is currently
+ * stored (mirrors the mockup's Regenerate button). No Anthropic key required.
+ */
+export class MockSummaryGenerator implements SummaryGenerator {
+  async generateSummary(
+    stats: SummaryStats,
+    opts?: { previousSummaryText?: string | null },
+  ): Promise<GeneratedSummary> {
+    const variants = [0, 1, 2].map((v) => buildDemoSummary(stats, v));
+    const currentIdx = variants.findIndex((v) => v.summaryText === opts?.previousSummaryText);
+    const next = variants[(currentIdx + 1) % variants.length]!;
+    return { summaryText: next.summaryText, insights: next.insights, model: DEMO_MODEL };
   }
 }
 

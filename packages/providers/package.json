@@ -11,11 +11,16 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "az:types": "openapi-typescript https://app.agencyzoom.com/openapi/agencyzoom.yaml -o src/live/az-schema.ts"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
+    "openapi-typescript": "^7.13.0",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
   }
 }

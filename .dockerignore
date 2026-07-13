@@ -1,0 +1,12 @@
+# Applies to both apps' Dockerfiles (build context = repo root).
+node_modules
+**/node_modules
+**/.next
+**/tsconfig.tsbuildinfo
+.git
+.env
+.env.*
+!.env.example
+.vscode
+.DS_Store
+anchorline-mockup.html

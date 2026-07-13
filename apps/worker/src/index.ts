@@ -1,22 +1,25 @@
 // Anchorline worker: cron schedules + DB-backed job queue poller.
-//
-// Remaining handlers arrive with their phases (CRM sync in 3,
-// transcription/scoring in 4, daily summary in 5).
 
 import "./env";
 import cron from "node-cron";
 import { prisma, type Job } from "@anchorline/db";
 import { isDemoMode } from "@anchorline/providers";
 import { syncRingCentral } from "./handlers/sync-ringcentral";
+import { syncAgencyZoom } from "./handlers/sync-agencyzoom";
+import { transcribeCall } from "./handlers/transcribe-call";
+import { scoreCall } from "./handlers/score-call";
+import { generateDailySummaryJob } from "./handlers/daily-summary";
 
 const POLL_INTERVAL_MS = 5_000;
 
 type JobHandler = (job: Job) => Promise<void>;
 
-// Handlers register here as phases land: sync_agencyzoom, transcribe_call,
-// score_call, generate_daily_summary.
 const handlers: Record<string, JobHandler> = {
   sync_ringcentral: syncRingCentral,
+  sync_agencyzoom: syncAgencyZoom,
+  transcribe_call: transcribeCall,
+  score_call: scoreCall,
+  generate_daily_summary: generateDailySummaryJob,
 };
 
 /** Claim the next runnable job with FOR UPDATE SKIP LOCKED (multi-worker safe). */
@@ -77,29 +80,50 @@ async function enqueueUnlessPending(agencyId: string, type: string): Promise<voi
   if (!pending) await prisma.job.create({ data: { agencyId, type } });
 }
 
-async function enqueueScheduledSyncs(): Promise<void> {
+async function enqueueScheduledSyncs(type: "sync_ringcentral" | "sync_agencyzoom"): Promise<void> {
   const agencies = await prisma.agency.findMany({ select: { id: true } });
   for (const agency of agencies) {
-    await enqueueUnlessPending(agency.id, "sync_ringcentral");
+    await enqueueUnlessPending(agency.id, type);
   }
 }
 
-function startSchedules(): void {
+async function startSchedules(): Promise<void> {
   if (isDemoMode()) {
     console.log("Demo mode: scheduled syncs disabled (manual demo sync runs inline in the web app).");
     return;
   }
-  // Every 15 minutes, plus once at boot so a fresh deploy backfills immediately.
-  cron.schedule("*/15 * * * *", () => {
-    enqueueScheduledSyncs().catch((err) => console.error("Failed to enqueue scheduled syncs:", err));
-  });
-  enqueueScheduledSyncs().catch((err) => console.error("Failed to enqueue startup syncs:", err));
-  console.log("Live mode: RingCentral sync scheduled every 15 minutes.");
+  const enqueue = (type: "sync_ringcentral" | "sync_agencyzoom") => {
+    enqueueScheduledSyncs(type).catch((err) => console.error(`Failed to enqueue ${type}:`, err));
+  };
+  // Recurring schedules, plus once at boot so a fresh deploy backfills immediately.
+  cron.schedule("*/15 * * * *", () => enqueue("sync_ringcentral"));
+  cron.schedule("*/30 * * * *", () => enqueue("sync_agencyzoom"));
+  enqueue("sync_ringcentral");
+  enqueue("sync_agencyzoom");
+
+  // Daily AI summary at 7:00 AM in each agency's time zone. Schedules are
+  // read once at boot (an agency added later needs a worker restart — fine
+  // for the single-tenant deployment).
+  const agencies = await prisma.agency.findMany({ select: { id: true, timezone: true } });
+  for (const agency of agencies) {
+    cron.schedule(
+      "0 7 * * *",
+      () => {
+        enqueueUnlessPending(agency.id, "generate_daily_summary").catch((err) =>
+          console.error("Failed to enqueue generate_daily_summary:", err),
+        );
+      },
+      { timezone: agency.timezone },
+    );
+  }
+  console.log(
+    "Live mode: RingCentral sync every 15 minutes, AgencyZoom sync every 30 minutes, daily summary at 7:00 AM agency-local.",
+  );
 }
 
 async function loop() {
   console.log(`Anchorline worker started (DATA_MODE=${process.env.DATA_MODE ?? "demo"}).`);
-  startSchedules();
+  await startSchedules().catch((err) => console.error("Failed to start schedules:", err));
   // Drain available jobs, then idle-poll.
   for (;;) {
     try {

@@ -147,13 +147,18 @@ interface TranscriptionProvider {
 
 ### AgencyZoom CRM sync (every 30 min + manual)
 
-1. Refresh producers (`/employees`) — cheap, one call.
-2. Page `POST /leads/list` filtered by `lastActivityEarliestDate` = watermark; upsert
-   `leads` with premium/date fields.
-3. **Quote fetch budget:** per-lead `GET /leads/{id}/quotes` only for leads whose
-   `lastActivityDate` moved past the watermark, throttled under the rate budget. A large
-   backlog drains across multiple runs (or overnight when the limit doubles); this is
-   incremental and safe.
+1. Producers (`/employees`) back the connection check; nothing is stored from them —
+   the identity map is user-managed and the unmapped-producer bucket derives from
+   synced lead rows.
+2. Page `POST /leads/list` filtered by `lastActivityEarliestDate` = watermark, sorted
+   ascending by `lastActivityDate` so the watermark doubles as a resume pointer; upsert
+   `leads` with premium/date fields. Leads whose synced fields are unchanged are skipped
+   entirely, so watermark overlap costs no quote requests.
+3. **Quote fetch budget:** per-lead `GET /leads/{id}/quotes` only for changed leads that
+   ever reached quoting, capped at `AZ_QUOTE_FETCH_BUDGET` per run (default 200) under a
+   25 req/min sliding-window throttle. When the budget runs out the run ends successfully
+   with the watermark at the last fully processed lead; a large backlog drains across
+   multiple runs (or overnight when the limit doubles); this is incremental and safe.
 4. Derive `policies_sold`: a lead with `soldDate` + sold premium produces rows (one per
    sold product line where quote detail exists, else a single lead-level row). Upsert is
    idempotent via the (agency, lead, product_line) unique key.
@@ -290,6 +295,11 @@ target.
 ---
 
 ## 10. Open items (flagged, not assumed)
+
+> **See `GO-LIVE.md`** for the production cutover checklist: credential
+> acquisition steps (RingCentral app graduation has lead time — start early),
+> the smoke-test runbook, and each open item below mapped to its exact switch
+> point in the code.
 
 1. **AgencyZoom quotes carry no timestamp** — dated by lead `quoteDate` / first-seen
    (§4). Confirm this is acceptable once real data is visible.

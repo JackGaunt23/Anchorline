@@ -129,3 +129,71 @@ export interface CallScoreResult {
   /** One specific, plain-language sentence about what happened on the call. */
   summary: string;
 }
+
+export interface ScoredCall {
+  result: CallScoreResult;
+  /** Model identifier persisted alongside the score (audit trail). */
+  model: string;
+  /** Version of the rubric prompt that produced the score. */
+  promptVersion: string;
+  raw?: unknown;
+}
+
+export interface CallScorer {
+  scoreCall(input: {
+    transcript: string;
+    /** Lets the mock scorer resolve fixture scorecards; ignored by the live scorer. */
+    rcSessionId: string;
+  }): Promise<ScoredCall>;
+}
+
+// ---------------------------------------------------------------------------
+// Daily summary generation (Anthropic in live mode, rotating deterministic
+// variants in demo mode). SummaryStats is structurally identical to the shape
+// @anchorline/metrics builds from DB aggregates — duplicated deliberately, as
+// a metrics import here would create a package cycle (db already depends on
+// providers for the seed's mock dataset).
+// ---------------------------------------------------------------------------
+
+export interface SummaryProducerStats {
+  name: string;
+  processScore: number;
+  prevProcessScore: number | null;
+  closeRatePct: number;
+  premiumDollars: number;
+  isRamping: boolean;
+}
+
+export interface SummaryStats {
+  totalCalls: number;
+  talkMinutes: number;
+  quotes: number;
+  policies: number;
+  premiumDollars: number;
+  closeRatePct: number;
+  closeRateDeltaPts: number;
+  producers: SummaryProducerStats[];
+}
+
+export interface SummaryInsight {
+  producer: string;
+  text: string;
+  tone: "good" | "warning" | "info";
+}
+
+export interface GeneratedSummary {
+  summaryText: string;
+  /** Exactly three insight cards. */
+  insights: SummaryInsight[];
+  model: string;
+}
+
+export interface SummaryGenerator {
+  generateSummary(
+    stats: SummaryStats,
+    opts?: {
+      /** Rotates demo variants; nudges the live prompt toward a fresh angle. */
+      previousSummaryText?: string | null;
+    },
+  ): Promise<GeneratedSummary>;
+}

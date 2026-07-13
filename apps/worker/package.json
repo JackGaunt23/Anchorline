@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@anchorline/db": "workspace:*",
+    "@anchorline/metrics": "workspace:*",
     "@anchorline/providers": "workspace:*",
     "dotenv": "^16.5.0",
     "node-cron": "^3.0.3",

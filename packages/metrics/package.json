@@ -16,5 +16,8 @@
     "@types/node": "^24.13.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@anchorline/db": "workspace:*"
   }
 }

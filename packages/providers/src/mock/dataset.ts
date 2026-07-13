@@ -21,7 +21,7 @@ import {
   type RubricSteps,
 } from "./fixtures";
 import { SCRIPTED_TRANSCRIPTS, generateTranscript, generateSummary } from "./transcripts";
-import type { NormalizedCall, NormalizedLead, NormalizedQuote } from "../types";
+import type { NormalizedCall, NormalizedLead, NormalizedQuote, SummaryInsight, SummaryStats } from "../types";
 
 const DAY_MS = 86_400_000;
 export const DEMO_SEED = 20260708;
@@ -453,29 +453,8 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
 // Mirrors the mockup's rotating variants.
 // ---------------------------------------------------------------------------
 
-export interface DemoSummaryStats {
-  totalCalls: number;
-  talkMinutes: number;
-  quotes: number;
-  policies: number;
-  premiumDollars: number;
-  closeRatePct: number;
-  closeRateDeltaPts: number;
-  producers: {
-    name: string;
-    processScore: number;
-    prevProcessScore: number | null;
-    closeRatePct: number;
-    premiumDollars: number;
-    isRamping: boolean;
-  }[];
-}
-
-export interface DemoInsight {
-  producer: string;
-  text: string;
-  tone: "good" | "warning" | "info";
-}
+export type DemoSummaryStats = SummaryStats;
+export type DemoInsight = SummaryInsight;
 
 const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 const fmtMin = (min: number) => `${Math.floor(min / 60)}h ${Math.round(min % 60)}m`;

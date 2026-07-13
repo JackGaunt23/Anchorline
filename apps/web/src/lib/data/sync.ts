@@ -1,8 +1,8 @@
 // Manual sync. Demo mode runs a small inline "sample sync" that mirrors the
 // mockup's demo buttons — a handful of fresh calls (RingCentral) or a couple
 // of sold policies (AgencyZoom), minute-seeded so double-clicks within the
-// same minute are idempotent. Live mode enqueues a worker job; the handlers
-// land in Phases 2 (RingCentral) and 3 (AgencyZoom).
+// same minute are idempotent. Live mode enqueues a worker job for the real
+// sync handlers (apps/worker/src/handlers/).
 
 import { prisma } from "@anchorline/db";
 import { AZ_LEAD_STATUS, getCallProvider, isDemoMode } from "@anchorline/providers";
