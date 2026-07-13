@@ -98,9 +98,11 @@ interface TranscriptionProvider {
 - `MockCallProvider` / `MockCrmProvider`: deterministic (seeded PRNG) fixture data
   reproducing the mockup's numbers and the five named producers (see §8). Manual demo
   syncs return small randomized increments, mirroring the mockup's toast behavior.
-- `RingCentralProvider`: `@ringcentral/sdk`, OAuth 2.0 JWT flow (`RC_SERVER_URL`,
-  `RC_CLIENT_ID`, `RC_CLIENT_SECRET`, `RC_USER_JWT`), `GET
-  /restapi/v1.0/account/~/call-log?view=Detailed`, exponential backoff on 429.
+- `RingCentralProvider`: thin typed REST client (built-in `fetch`, no SDK dependency —
+  the JWT grant is one POST and 429 handling is custom either way), OAuth 2.0 JWT flow
+  (`RC_SERVER_URL`, `RC_CLIENT_ID`, `RC_CLIENT_SECRET`, `RC_USER_JWT`), `GET
+  /restapi/v1.0/account/~/call-log?view=Detailed`, Retry-After-aware exponential
+  backoff on 429, module-scoped token cache.
 - `AgencyZoomProvider`: direct login (`POST /v1/api/auth/login` → JWT bearer,
   re-login on 401), typed via `openapi-typescript` generation from the published spec,
   token-bucket throttle ≤ 25 req/min (documented limit is 30/min daytime, 60/min
