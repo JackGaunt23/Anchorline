@@ -237,6 +237,8 @@ describe("AgencyZoom leads", () => {
   it("normalizes lead fields: status names, cents passthrough, UTC-midnight dates", () => {
     const lead = normalizeAzLead({
       id: 42,
+      firstname: "Maya",
+      lastname: "Alvarez",
       status: 2,
       assignedTo: 11,
       leadSourceName: "Referral",
@@ -250,6 +252,7 @@ describe("AgencyZoom leads", () => {
     expect(lead).toMatchObject({
       azLeadId: "42",
       azProducerId: "11",
+      contactName: "Maya Alvarez",
       statusCode: 2,
       status: "won",
       source: "Referral",
@@ -260,7 +263,12 @@ describe("AgencyZoom leads", () => {
     expect(lead.soldDate?.toISOString()).toBe("2026-06-12T00:00:00.000Z");
 
     expect(normalizeAzLead({ status: 1 })).toBeNull(); // no id
-    expect(normalizeAzLead({ id: 7 })).toMatchObject({ statusCode: 0, status: "new", azProducerId: null });
+    expect(normalizeAzLead({ id: 7 })).toMatchObject({
+      statusCode: 0,
+      status: "new",
+      azProducerId: null,
+      contactName: null,
+    });
   });
 
   it("parses AgencyZoom date strings", () => {

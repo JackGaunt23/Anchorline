@@ -12,16 +12,16 @@ import {
 import { RingCentralProvider } from "./live/ringcentral";
 import { AgencyZoomProvider } from "./live/agencyzoom";
 import { DeepgramTranscriptionProvider } from "./live/deepgram";
-import { AnthropicCallScorer } from "./live/anthropic-scorer";
-import { AnthropicSummaryGenerator } from "./live/anthropic-summary";
+import { OpenAICallScorer } from "./live/openai-scorer";
+import { OpenAISummaryGenerator } from "./live/openai-summary";
 
 export * from "./types";
 // Error classes and constants consumers (the worker) need for typed handling.
 export { RingCentralApiError } from "./live/ringcentral";
 export { AgencyZoomApiError } from "./live/agencyzoom";
 export { DeepgramApiError } from "./live/deepgram";
-export { AnthropicApiError } from "./live/anthropic";
-export { CALL_SCORING_PROMPT_VERSION } from "./live/anthropic-scorer";
+export { OpenAIApiError } from "./live/openai";
+export { CALL_SCORING_PROMPT_VERSION } from "./live/openai-scorer";
 
 export function getDataMode(): DataMode {
   return process.env.DATA_MODE === "live" ? "live" : "demo";
@@ -44,9 +44,9 @@ export function getTranscriptionProvider(): TranscriptionProvider {
 }
 
 export function getCallScorer(): CallScorer {
-  return isDemoMode() ? new MockCallScorer() : new AnthropicCallScorer();
+  return isDemoMode() ? new MockCallScorer() : new OpenAICallScorer();
 }
 
 export function getSummaryGenerator(): SummaryGenerator {
-  return isDemoMode() ? new MockSummaryGenerator() : new AnthropicSummaryGenerator();
+  return isDemoMode() ? new MockSummaryGenerator() : new OpenAISummaryGenerator();
 }

@@ -241,9 +241,48 @@ describe("normalizeCallRecord", () => {
     expect(call).toMatchObject({
       fromNumber: "101",
       toNumber: "+15550199",
+      contactName: null,
+      counterpartyNumber: "+15550199",
       hasRecording: true,
       recordingContentUri: "https://media.rc.test/recording/r1/content",
     });
+  });
+
+  it("derives the customer name and number from the direction-specific side", () => {
+    const base: RcCallRecord = {
+      sessionId: "s-party",
+      type: "Voice",
+      startTime: "2026-07-10T14:00:00.000Z",
+      from: { phoneNumber: "+15550100", name: "Agency Line" },
+      to: { phoneNumber: "+15552000001", name: "Maya Alvarez" },
+    };
+
+    expect(normalizeCallRecord({ ...base, direction: "Outbound" })).toMatchObject({
+      contactName: "Maya Alvarez",
+      counterpartyNumber: "+15552000001",
+    });
+    expect(
+      normalizeCallRecord({
+        ...base,
+        direction: "Inbound",
+        from: { phoneNumber: "+15552000002", name: "Daniel Whitmore" },
+        to: { phoneNumber: "+15550100", name: "Agency Line" },
+      }),
+    ).toMatchObject({
+      contactName: "Daniel Whitmore",
+      counterpartyNumber: "+15552000002",
+    });
+  });
+
+  it("uses a null contact name when RingCentral sends no caller-ID name", () => {
+    expect(
+      normalizeCallRecord({
+        sessionId: "s-no-name",
+        startTime: "2026-07-10T14:00:00.000Z",
+        direction: "Inbound",
+        from: { phoneNumber: "+15552000003" },
+      })?.contactName,
+    ).toBeNull();
   });
 
   it("skips non-voice records and records missing an id or start time", () => {

@@ -58,6 +58,13 @@ async function main() {
   });
   console.log(`Agency "${agency.name}" ready; owner login ${ownerEmail} upserted.`);
 
+  if (dataMode !== "demo") {
+    console.log(
+      "DATA_MODE=live — skipping demo dataset; producer identity mapping is left to Settings.",
+    );
+    return;
+  }
+
   // --- Producer identity map (demo fixtures) ------------------------------
   for (const p of PRODUCERS) {
     await prisma.producerIdentityMap.upsert({
@@ -79,12 +86,7 @@ async function main() {
       },
     });
   }
-  console.log(`Identity map: ${PRODUCERS.length} producers upserted.`);
-
-  if (dataMode !== "demo") {
-    console.log("DATA_MODE=live — skipping demo dataset. Live sync populates data.");
-    return;
-  }
+  console.log(`Identity map: ${PRODUCERS.length} demo producers upserted.`);
 
   // --- Demo dataset --------------------------------------------------------
   const anchor = demoAnchor();
@@ -98,6 +100,7 @@ async function main() {
   await prisma.dailySummary.deleteMany({ where: { agencyId: agency.id } });
   await prisma.job.deleteMany({ where: { agencyId: agency.id } });
   await prisma.syncRun.deleteMany({ where: { agencyId: agency.id } });
+  await prisma.callLog.deleteMany({ where: { agencyId: agency.id } });
   await prisma.call.deleteMany({ where: { agencyId: agency.id } });
   await prisma.lead.deleteMany({ where: { agencyId: agency.id } });
 
@@ -114,6 +117,8 @@ async function main() {
         result: c.result,
         fromNumber: c.fromNumber,
         toNumber: c.toNumber,
+        contactName: c.contactName,
+        counterpartyNumber: c.counterpartyNumber,
         hasRecording: c.hasRecording,
         recordingContentUri: c.recordingContentUri,
         raw: c.raw as Prisma.InputJsonValue,
@@ -128,6 +133,7 @@ async function main() {
         agencyId: agency.id,
         azLeadId: l.azLeadId,
         azProducerId: l.azProducerId,
+        contactName: l.contactName,
         statusCode: l.statusCode,
         status: l.status,
         source: l.source,

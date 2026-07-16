@@ -8,6 +8,7 @@ import { useToast } from "../toast";
 import {
   IconDoc,
   IconNavCalls,
+  IconNavHouse,
   IconNavOverview,
   IconNavPerson,
   IconNavReports,
@@ -19,6 +20,7 @@ import {
 const NAV = [
   { href: "/", label: "Overview", Icon: IconNavOverview },
   { href: "/calls", label: "Calls", Icon: IconNavCalls },
+  { href: "/households", label: "Households", Icon: IconNavHouse },
   { href: "/quotes-policies", label: "Quotes & Policies", Icon: IconDoc },
   { href: "/producers", label: "Producers", Icon: IconNavPerson },
   { href: "/reports", label: "Reports", Icon: IconNavReports },

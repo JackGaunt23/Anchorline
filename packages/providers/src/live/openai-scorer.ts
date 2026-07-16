@@ -1,8 +1,8 @@
-// Anthropic call scorer.
+// OpenAI call scorer.
 //
 // Scores a sales-call transcript against the five-step process rubric via one
-// Messages API call (shared thin client in ./anthropic.ts). The response must
-// be a single JSON object; it is zod-validated, and one retry with a
+// Chat Completions API call (shared thin client in ./openai.ts). The response
+// must be a single JSON object; it is zod-validated, and one retry with a
 // correction turn is attempted before the job is failed. The prompt is
 // versioned so scores are comparable within a prompt generation (persisted as
 // call_scores.prompt_version).
@@ -10,20 +10,22 @@
 import { z } from "zod";
 import type { CallScorer, CallScoreResult, ScoredCall } from "../types";
 import {
-  anthropicConfigFromEnv,
-  completeMessages,
-  type AnthropicConfig,
-  type AnthropicMessage,
+  completeChat,
+  openAIConfigFromEnv,
   type FetchLike,
-} from "./anthropic";
+  type OpenAIConfig,
+  type OpenAIMessage,
+} from "./openai";
 
-export { AnthropicApiError, DEFAULT_ANTHROPIC_MODEL, anthropicConfigFromEnv, type AnthropicConfig } from "./anthropic";
+export { OpenAIApiError, DEFAULT_OPENAI_MODEL, openAIConfigFromEnv, type OpenAIConfig } from "./openai";
 
 export const CALL_SCORING_PROMPT_VERSION = "v1";
 
 /** Ample for an hour-long call; guards the prompt against pathological input. */
 const MAX_TRANSCRIPT_CHARS = 120_000;
-const MAX_OUTPUT_TOKENS = 512;
+// On gpt-5.x, max_completion_tokens includes hidden reasoning tokens, so 512
+// could be exhausted before any visible output.
+const MAX_OUTPUT_TOKENS = 1024;
 
 export const SCORING_SYSTEM_PROMPT = `You are a sales coach scoring a recorded phone call from a property & casualty insurance agency. The transcript may label speakers by role (Agent/Customer) or generically (Speaker 1/Speaker 2); infer who the agent is.
 
@@ -66,22 +68,22 @@ export function parseScoreJson(text: string): CallScoreResult | null {
   return { ...parsed.data, score: Math.round(parsed.data.score) };
 }
 
-export class AnthropicCallScorer implements CallScorer {
+export class OpenAICallScorer implements CallScorer {
   constructor(
-    private readonly config: AnthropicConfig | null = anthropicConfigFromEnv(),
+    private readonly config: OpenAIConfig | null = openAIConfigFromEnv(),
     private readonly fetchImpl: FetchLike = fetch,
   ) {}
 
   async scoreCall(input: { transcript: string; rcSessionId: string }): Promise<ScoredCall> {
     if (!this.config) {
-      throw new Error("Anthropic scoring is not configured — set ANTHROPIC_API_KEY (or run with DATA_MODE=demo).");
+      throw new Error("OpenAI scoring is not configured — set OPENAI_API_KEY (or run with DATA_MODE=demo).");
     }
     const transcript = input.transcript.slice(0, MAX_TRANSCRIPT_CHARS);
-    const messages: AnthropicMessage[] = [{ role: "user", content: transcript }];
+    const messages: OpenAIMessage[] = [{ role: "user", content: transcript }];
 
     // One correction retry: feed the invalid output back and ask again.
     for (let attempt = 0; ; attempt++) {
-      const { text, raw } = await completeMessages(this.config, this.fetchImpl, {
+      const { text, raw } = await completeChat(this.config, this.fetchImpl, {
         system: SCORING_SYSTEM_PROMPT,
         messages,
         maxTokens: MAX_OUTPUT_TOKENS,
@@ -89,7 +91,7 @@ export class AnthropicCallScorer implements CallScorer {
       const result = parseScoreJson(text);
       if (result) return { result, model: this.config.model, promptVersion: CALL_SCORING_PROMPT_VERSION, raw };
       if (attempt >= 1) {
-        throw new Error(`Anthropic scorer returned invalid JSON twice: ${text.slice(0, 200)}`);
+        throw new Error(`OpenAI scorer returned invalid JSON twice: ${text.slice(0, 200)}`);
       }
       messages.push(
         { role: "assistant", content: text },

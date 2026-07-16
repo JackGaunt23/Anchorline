@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AnthropicSummaryGenerator, parseSummaryJson } from "../src/live/anthropic-summary";
-import type { AnthropicConfig } from "../src/live/anthropic";
+import { OpenAISummaryGenerator, parseSummaryJson } from "../src/live/openai-summary";
+import type { OpenAIConfig } from "../src/live/openai";
 import { MockSummaryGenerator } from "../src/mock/providers";
 import { buildDemoSummary, DEMO_MODEL } from "../src/mock/dataset";
 import type { SummaryStats } from "../src/types";
@@ -16,7 +16,7 @@ function fakeFetch(handler: Handler) {
   return { impl, calls };
 }
 
-const cfg: AnthropicConfig = { apiKey: "sk-ant-test", model: "claude-sonnet-5", baseUrl: "https://anthropic.test" };
+const cfg: OpenAIConfig = { apiKey: "sk-test", model: "gpt-5.1", baseUrl: "https://openai.test" };
 
 const stats: SummaryStats = {
   totalCalls: 1755,
@@ -42,61 +42,70 @@ const validSummary = {
   ],
 };
 
-const messagesResponse = (text: string) =>
-  new Response(JSON.stringify({ content: [{ type: "text", text }] }), {
+const chatResponse = (content: string) =>
+  new Response(JSON.stringify({ choices: [{ message: { content } }], model: "gpt-5.1" }), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
 
-describe("AnthropicSummaryGenerator", () => {
+describe("OpenAISummaryGenerator", () => {
   it("sends the stats and returns the validated summary", async () => {
-    const { impl, calls } = fakeFetch(() => messagesResponse(JSON.stringify(validSummary)));
-    const generated = await new AnthropicSummaryGenerator(cfg, impl).generateSummary(stats);
+    const { impl, calls } = fakeFetch(() => chatResponse(JSON.stringify(validSummary)));
+    const generated = await new OpenAISummaryGenerator(cfg, impl).generateSummary(stats);
 
     expect(generated.summaryText).toBe(validSummary.summary);
     expect(generated.insights).toEqual(validSummary.insights);
-    expect(generated.model).toBe("claude-sonnet-5");
+    expect(generated.model).toBe("gpt-5.1");
 
-    expect(calls[0]!.url).toBe("https://anthropic.test/v1/messages");
+    expect(calls[0]!.url).toBe("https://openai.test/v1/chat/completions");
     const body = calls[0]!.body;
-    expect(String(body.system)).toContain("exactly 3");
+    expect(body.model).toBe("gpt-5.1");
+    expect(body).not.toHaveProperty("temperature");
+    expect(body.max_completion_tokens).toBe(2048);
+    expect(body.response_format).toEqual({ type: "json_object" });
     const messages = body.messages as { role: string; content: string }[];
-    expect(messages[0]!.content).toContain('"totalCalls": 1755');
-    expect(messages[0]!.content).not.toContain("previous summary");
+    expect(messages[0]!.role).toBe("system");
+    expect(messages[0]!.content).toContain("exactly 3");
+    expect(messages[1]!.role).toBe("user");
+    expect(messages[1]!.content).toContain('"totalCalls": 1755');
+    expect(messages[1]!.content).not.toContain("previous summary");
   });
 
   it("asks for a fresh angle when a previous summary exists", async () => {
-    const { impl, calls } = fakeFetch(() => messagesResponse(JSON.stringify(validSummary)));
-    await new AnthropicSummaryGenerator(cfg, impl).generateSummary(stats, {
+    const { impl, calls } = fakeFetch(() => chatResponse(JSON.stringify(validSummary)));
+    await new OpenAISummaryGenerator(cfg, impl).generateSummary(stats, {
       previousSummaryText: "Yesterday's take.",
     });
     const messages = calls[0]!.body.messages as { role: string; content: string }[];
-    expect(messages[0]!.content).toContain('The previous summary read: "Yesterday\'s take."');
-    expect(messages[0]!.content).toContain("fresh angle");
+    expect(messages[1]!.content).toContain('The previous summary read: "Yesterday\'s take."');
+    expect(messages[1]!.content).toContain("fresh angle");
   });
 
   it("retries once on invalid output, then fails", async () => {
-    const { impl, calls } = fakeFetch(() => messagesResponse("not json"));
-    await expect(new AnthropicSummaryGenerator(cfg, impl).generateSummary(stats)).rejects.toThrow(
+    const badText = "not json";
+    const { impl, calls } = fakeFetch(() => chatResponse(badText));
+    await expect(new OpenAISummaryGenerator(cfg, impl).generateSummary(stats)).rejects.toThrow(
       /invalid JSON twice/,
     );
     expect(calls).toHaveLength(2);
-    const retryMessages = calls[1]!.body.messages as { role: string }[];
-    expect(retryMessages).toHaveLength(3);
+    const retryMessages = calls[1]!.body.messages as { role: string; content: string }[];
+    expect(retryMessages).toHaveLength(4);
+    expect(retryMessages[2]).toEqual({ role: "assistant", content: badText });
+    expect(retryMessages[3]!.content).toContain("ONLY the JSON object");
   });
 
   it("rejects the wrong number of insights as invalid output", async () => {
     const { impl, calls } = fakeFetch(() =>
-      messagesResponse(JSON.stringify({ ...validSummary, insights: validSummary.insights.slice(0, 2) })),
+      chatResponse(JSON.stringify({ ...validSummary, insights: validSummary.insights.slice(0, 2) })),
     );
-    await expect(new AnthropicSummaryGenerator(cfg, impl).generateSummary(stats)).rejects.toThrow(
+    await expect(new OpenAISummaryGenerator(cfg, impl).generateSummary(stats)).rejects.toThrow(
       /invalid JSON twice/,
     );
     expect(calls).toHaveLength(2);
   });
 
   it("explains missing configuration", async () => {
-    await expect(new AnthropicSummaryGenerator(null).generateSummary(stats)).rejects.toThrow(/ANTHROPIC_API_KEY/);
+    await expect(new OpenAISummaryGenerator(null).generateSummary(stats)).rejects.toThrow(/OPENAI_API_KEY/);
   });
 });
 

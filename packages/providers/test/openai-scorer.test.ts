@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  AnthropicApiError,
-  AnthropicCallScorer,
   CALL_SCORING_PROMPT_VERSION,
+  OpenAIApiError,
+  OpenAICallScorer,
   parseScoreJson,
-  type AnthropicConfig,
-} from "../src/live/anthropic-scorer";
+  type OpenAIConfig,
+} from "../src/live/openai-scorer";
 
 type Handler = (url: string, init?: RequestInit) => Response;
 
@@ -18,7 +18,7 @@ function fakeFetch(handler: Handler) {
   return { impl, calls };
 }
 
-const cfg: AnthropicConfig = { apiKey: "sk-ant-test", model: "claude-sonnet-5", baseUrl: "https://anthropic.test" };
+const cfg: OpenAIConfig = { apiKey: "sk-test", model: "gpt-5.1", baseUrl: "https://openai.test" };
 
 const validCard = {
   score: 88,
@@ -30,78 +30,83 @@ const validCard = {
   summary: "Priya quoted an auto bundle and set a binding call for Thursday.",
 };
 
-const messagesResponse = (text: string) =>
-  new Response(JSON.stringify({ content: [{ type: "text", text }], model: cfg.model }), {
+const chatResponse = (content: string) =>
+  new Response(JSON.stringify({ choices: [{ message: { content } }], model: "gpt-5.1" }), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
 
 const input = { transcript: "Agent: Hello.\nCustomer: Hi.", rcSessionId: "rc-1" };
 
-describe("AnthropicCallScorer", () => {
+describe("OpenAICallScorer", () => {
   it("sends the versioned rubric prompt and returns the validated scorecard", async () => {
-    const { impl, calls } = fakeFetch(() => messagesResponse(JSON.stringify(validCard)));
-    const scorer = new AnthropicCallScorer(cfg, impl);
+    const { impl, calls } = fakeFetch(() => chatResponse(JSON.stringify(validCard)));
+    const scorer = new OpenAICallScorer(cfg, impl);
     const scored = await scorer.scoreCall(input);
 
     expect(scored.result).toEqual(validCard);
-    expect(scored.model).toBe("claude-sonnet-5");
+    expect(scored.model).toBe("gpt-5.1");
     expect(scored.promptVersion).toBe(CALL_SCORING_PROMPT_VERSION);
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.url).toBe("https://anthropic.test/v1/messages");
+    expect(calls[0]!.url).toBe("https://openai.test/v1/chat/completions");
     const body = calls[0]!.body;
-    expect(body.model).toBe("claude-sonnet-5");
-    expect(body.temperature).toBe(0);
-    expect(String(body.system)).toContain("close_attempted");
-    expect(body.messages).toEqual([{ role: "user", content: input.transcript }]);
+    expect(body.model).toBe("gpt-5.1");
+    expect(body).not.toHaveProperty("temperature");
+    expect(body.max_completion_tokens).toBe(1024);
+    expect(body.response_format).toEqual({ type: "json_object" });
+    const messages = body.messages as { role: string; content: string }[];
+    expect(messages[0]!.role).toBe("system");
+    expect(messages[0]!.content).toContain("close_attempted");
+    expect(messages[1]).toEqual({ role: "user", content: input.transcript });
   });
 
   it("tolerates prose and code fences around the JSON", async () => {
     const { impl } = fakeFetch(() =>
-      messagesResponse("Here is the scorecard:\n```json\n" + JSON.stringify(validCard) + "\n```"),
+      chatResponse("Here is the scorecard:\n```json\n" + JSON.stringify(validCard) + "\n```"),
     );
-    const scored = await new AnthropicCallScorer(cfg, impl).scoreCall(input);
+    const scored = await new OpenAICallScorer(cfg, impl).scoreCall(input);
     expect(scored.result).toEqual(validCard);
   });
 
   it("retries once with a correction turn on invalid output, then succeeds", async () => {
     let n = 0;
+    const badText = "I'd rate this call quite highly overall.";
     const { impl, calls } = fakeFetch(() =>
-      messagesResponse(n++ === 0 ? "I'd rate this call quite highly overall." : JSON.stringify(validCard)),
+      chatResponse(n++ === 0 ? badText : JSON.stringify(validCard)),
     );
-    const scored = await new AnthropicCallScorer(cfg, impl).scoreCall(input);
+    const scored = await new OpenAICallScorer(cfg, impl).scoreCall(input);
     expect(scored.result).toEqual(validCard);
     expect(calls).toHaveLength(2);
     const retryMessages = calls[1]!.body.messages as { role: string; content: string }[];
-    expect(retryMessages).toHaveLength(3);
-    expect(retryMessages[1]!.role).toBe("assistant");
-    expect(retryMessages[2]!.content).toContain("ONLY the JSON object");
+    expect(retryMessages).toHaveLength(4);
+    expect(retryMessages[2]).toEqual({ role: "assistant", content: badText });
+    expect(retryMessages[3]!.content).toContain("ONLY the JSON object");
   });
 
   it("fails after a second invalid response", async () => {
-    const { impl, calls } = fakeFetch(() => messagesResponse("still not json"));
-    await expect(new AnthropicCallScorer(cfg, impl).scoreCall(input)).rejects.toThrow(/invalid JSON twice/);
+    const { impl, calls } = fakeFetch(() => chatResponse("still not json"));
+    await expect(new OpenAICallScorer(cfg, impl).scoreCall(input)).rejects.toThrow(/invalid JSON twice/);
     expect(calls).toHaveLength(2);
   });
 
   it("treats an out-of-range score as invalid output (retry then fail)", async () => {
-    const { impl, calls } = fakeFetch(() => messagesResponse(JSON.stringify({ ...validCard, score: 140 })));
-    await expect(new AnthropicCallScorer(cfg, impl).scoreCall(input)).rejects.toThrow(/invalid JSON twice/);
+    const { impl, calls } = fakeFetch(() => chatResponse(JSON.stringify({ ...validCard, score: 140 })));
+    await expect(new OpenAICallScorer(cfg, impl).scoreCall(input)).rejects.toThrow(/invalid JSON twice/);
     expect(calls).toHaveLength(2);
   });
 
   it("surfaces API errors with their status", async () => {
-    const { impl } = fakeFetch(() => new Response("overloaded", { status: 529 }));
-    await expect(new AnthropicCallScorer(cfg, impl).scoreCall(input)).rejects.toMatchObject({
-      name: "AnthropicApiError",
-      status: 529,
+    const { impl } = fakeFetch(() => new Response("rate limited", { status: 429 }));
+    await expect(new OpenAICallScorer(cfg, impl).scoreCall(input)).rejects.toMatchObject({
+      name: "OpenAIApiError",
+      status: 429,
     });
-    await expect(new AnthropicCallScorer(cfg, impl).scoreCall(input)).rejects.toBeInstanceOf(AnthropicApiError);
+    await expect(new OpenAICallScorer(cfg, impl).scoreCall(input)).rejects.toBeInstanceOf(OpenAIApiError);
   });
 
   it("explains missing configuration", async () => {
-    await expect(new AnthropicCallScorer(null).scoreCall(input)).rejects.toThrow(/ANTHROPIC_API_KEY/);
+    await expect(new OpenAICallScorer(null).scoreCall(input)).rejects.toThrow(/OPENAI_API_KEY/);
   });
 });
 

@@ -28,6 +28,7 @@ model Agency {
   users             User[]
   producers         ProducerIdentityMap[]
   calls             Call[]
+  callLogs          CallLog[]
   callTranscripts   CallTranscript[]
   callScores        CallScore[]
   leads             Lead[]
@@ -88,6 +89,8 @@ model Call {
   result              String?
   fromNumber          String?  @map("from_number")
   toNumber            String?  @map("to_number")
+  contactName         String?  @map("contact_name")
+  counterpartyNumber  String?  @map("counterparty_number")
   hasRecording        Boolean  @default(false) @map("has_recording")
   recordingContentUri String?  @map("recording_content_uri")
   raw                 Json?
@@ -97,11 +100,41 @@ model Call {
   agency     Agency          @relation(fields: [agencyId], references: [id])
   transcript CallTranscript?
   score      CallScore?
+  callLogs   CallLog[]
 
   @@unique([agencyId, rcSessionId])
   @@index([agencyId, startTime])
   @@index([agencyId, rcExtensionId, startTime])
+  @@index([agencyId, counterpartyNumber, startTime])
   @@map("calls")
+}
+
+enum CallDisposition {
+  quoted
+  follow_up_needed
+  not_interested
+  sale_closed
+}
+
+/// Producer-entered call outcome from the Calls page "Log call" form. callId
+/// is optional (the header button logs a call with no source row) and severs
+/// to null rather than cascading — a logged outcome outlives call-row churn.
+model CallLog {
+  id           String          @id @default(cuid())
+  agencyId     String          @map("agency_id")
+  callId       String?         @map("call_id")
+  contactLabel String          @map("contact_label")
+  disposition  CallDisposition
+  notes        String?
+  createdBy    String?         @map("created_by")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  call   Call?  @relation(fields: [callId], references: [id], onDelete: SetNull)
+
+  @@index([agencyId, createdAt])
+  @@map("call_logs")
 }
 
 enum TranscriptStatus {
@@ -159,6 +192,7 @@ model Lead {
   agencyId           String    @map("agency_id")
   azLeadId           String    @map("az_lead_id")
   azProducerId       String?   @map("az_producer_id")
+  contactName        String?   @map("contact_name")
   statusCode         Int       @map("status_code")
   status             String
   source             String?

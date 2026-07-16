@@ -155,8 +155,8 @@ export interface RcCallRecord {
   startTime?: string;
   duration?: number;
   result?: string;
-  from?: { phoneNumber?: string; extensionNumber?: string };
-  to?: { phoneNumber?: string; extensionNumber?: string };
+  from?: { phoneNumber?: string; extensionNumber?: string; name?: string };
+  to?: { phoneNumber?: string; extensionNumber?: string; name?: string };
   extension?: { id?: number | string };
   recording?: { id?: string; contentUri?: string };
   legs?: RcCallLeg[];
@@ -183,15 +183,19 @@ export function normalizeCallRecord(record: RcCallRecord): NormalizedCall | null
   const rcSessionId = record.sessionId ?? record.id;
   if (!rcSessionId || !record.startTime) return null;
   if (record.type && record.type !== "Voice") return null;
+  const direction = record.direction === "Inbound" ? "Inbound" : "Outbound";
+  const counterparty = direction === "Outbound" ? record.to : record.from;
   return {
     rcSessionId: String(rcSessionId),
     rcExtensionId: resolveExtensionId(record),
-    direction: record.direction === "Inbound" ? "Inbound" : "Outbound",
+    direction,
     startTime: new Date(record.startTime),
     durationSeconds: record.duration ?? 0,
     result: record.result ?? null,
     fromNumber: record.from?.phoneNumber ?? record.from?.extensionNumber ?? null,
     toNumber: record.to?.phoneNumber ?? record.to?.extensionNumber ?? null,
+    contactName: counterparty?.name ?? null,
+    counterpartyNumber: counterparty?.phoneNumber ?? counterparty?.extensionNumber ?? null,
     hasRecording: Boolean(record.recording?.contentUri),
     recordingContentUri: record.recording?.contentUri ?? null,
     raw: record,

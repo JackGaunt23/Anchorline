@@ -15,6 +15,12 @@ export const fmtCurrencyCompact = (dollars: number) =>
 
 export const fmtPct = (n: number, digits = 1) => n.toFixed(digits) + "%";
 
+/** +1 NANP number → (555) 012-3456; all other strings pass through. */
+export function fmtPhone(phone: string) {
+  const match = phone.match(/^\+1(\d{3})(\d{3})(\d{4})$/);
+  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : phone;
+}
+
 /** Talk time: 10,870 minutes → "181h 10m". */
 export function fmtMinutes(min: number) {
   const h = Math.floor(min / 60);

@@ -148,6 +148,146 @@ export const CARRIERS = ["Progressive", "Travelers", "Safeco", "Nationwide", "Ha
 
 export const LEAD_SOURCES = ["Web quote form", "Referral", "Google LSA", "Walk-in", "Renewal shop"] as const;
 
+export interface ContactFixture {
+  name: string;
+  phone: string;
+}
+
+/**
+ * Deterministic caller pool. The generator draws heavily from the front of
+ * this list so the same prospects recur, while the final eight entries are
+ * reserved for the hand-placed Calls-page stories below.
+ */
+export const CONTACTS: ContactFixture[] = [
+  { name: "Maya Alvarez", phone: "+15552000001" },
+  { name: "Daniel Whitmore", phone: "+15552000002" },
+  { name: "Sofia Chen-Ortiz", phone: "+15552000003" },
+  { name: "Elliot Bregman", phone: "+15552000004" },
+  { name: "Amara Okafor", phone: "+15552000005" },
+  { name: "Lucia Delacroix-Reyes", phone: "+15552000006" },
+  { name: "Jordan Bennett", phone: "+15552000007" },
+  { name: "Naomi Carter", phone: "+15552000008" },
+  { name: "Theo Davidson", phone: "+15552000009" },
+  { name: "Iris Edwards", phone: "+15552000010" },
+  { name: "Caleb Foster", phone: "+15552000011" },
+  { name: "Leila Green", phone: "+15552000012" },
+  { name: "Miles Hassan", phone: "+15552000013" },
+  { name: "Anika Ito", phone: "+15552000014" },
+  { name: "Owen Jackson", phone: "+15552000015" },
+  { name: "Fatima Khan", phone: "+15552000016" },
+  { name: "Jonah Laurent", phone: "+15552000017" },
+  { name: "Carmen Morales", phone: "+15552000018" },
+  { name: "Ravi Nair", phone: "+15552000019" },
+  { name: "Mia O'Connell", phone: "+15552000020" },
+  { name: "Andre Park", phone: "+15552000021" },
+  { name: "Zara Qureshi", phone: "+15552000022" },
+  { name: "Leo Ramirez", phone: "+15552000023" },
+  { name: "Nina Svensson", phone: "+15552000024" },
+  { name: "Arjun Talwar", phone: "+15552000025" },
+  { name: "Clara Usman", phone: "+15552000026" },
+  { name: "Mateo Vega", phone: "+15552000027" },
+  { name: "Hana Watanabe", phone: "+15552000028" },
+  { name: "Isaac Young", phone: "+15552000029" },
+  { name: "Layla Zimmerman", phone: "+15552000030" },
+  { name: "Avery Brooks", phone: "+15552000031" },
+  { name: "Simon Clarke", phone: "+15552000032" },
+  { name: "Keira Dominguez", phone: "+15552000033" },
+  { name: "Malcolm Evans", phone: "+15552000034" },
+  { name: "Talia Freeman", phone: "+15552000035" },
+  { name: "Noah Gupta", phone: "+15552000036" },
+  { name: "Elise Hoffman", phone: "+15552000037" },
+  { name: "Darius Ibrahim", phone: "+15552000038" },
+  { name: "Maeve Jensen", phone: "+15552000039" },
+  { name: "Nico Kim", phone: "+15552000040" },
+  { name: "Alina Lopez", phone: "+15552000041" },
+  { name: "Grant Mitchell", phone: "+15552000042" },
+  { name: "Priya Narang", phone: "+15552000043" },
+  { name: "Felix Owens", phone: "+15552000044" },
+  { name: "Mei Patel", phone: "+15552000045" },
+  { name: "Hugo Rivera", phone: "+15552000046" },
+  { name: "Lena Schmidt", phone: "+15552000047" },
+  { name: "Wesley Thompson", phone: "+15552000048" },
+  { name: "Sana Ullah", phone: "+15552000049" },
+  { name: "Victor Valdez", phone: "+15552000050" },
+  { name: "Amina Walker", phone: "+15552000051" },
+  { name: "Xavier Xu", phone: "+15552000052" },
+  { name: "Yara Youssef", phone: "+15552000053" },
+  { name: "Zane Abbott", phone: "+15552000054" },
+  { name: "Bianca Flores", phone: "+15552000055" },
+  { name: "Cedric Grant", phone: "+15552000056" },
+  { name: "Dahlia Hayes", phone: "+15552000057" },
+  { name: "Emmett Inoue", phone: "+15552000058" },
+  { name: "Freya James", phone: "+15552000059" },
+  { name: "Gideon Knox", phone: "+15552000060" },
+  { name: "Helena Martin", phone: "+15552000061" },
+  { name: "Idris Novak", phone: "+15552000062" },
+  { name: "Juno Price", phone: "+15552000063" },
+  { name: "Kellan Ross", phone: "+15552000064" },
+  { name: "Lila Singh", phone: "+15552000065" },
+  { name: "Micah Turner", phone: "+15552000066" },
+  { name: "Nadia Vasquez", phone: "+15552000067" },
+  { name: "Orson Williams", phone: "+15552000068" },
+  { name: "Pia Yamamoto", phone: "+15552000069" },
+  { name: "Quinn Zoric", phone: "+15552000070" },
+  { name: "Rosa Acosta", phone: "+15552000071" },
+  { name: "Stefan Bell", phone: "+15552000072" },
+  { name: "Grace Whitfield", phone: "+15552900001" },
+  { name: "Marcus Doyle", phone: "+15552900002" },
+  { name: "Elena Petrov", phone: "+15552900003" },
+  { name: "Harold Jennings", phone: "+15552900004" },
+  { name: "Sam Okonkwo", phone: "+15552900005" },
+  { name: "Priya Deshmukh", phone: "+15552900006" },
+  { name: "Ben Locke", phone: "+15552900007" },
+  { name: "Nora Fitzgerald", phone: "+15552900008" },
+];
+
+export interface ConversationStoryCall {
+  id: string;
+  producerKey: ProducerKey;
+  contact: ContactFixture;
+  daysAgo: number;
+  hourUtc: number;
+  minuteUtc: number;
+  durationSeconds: number;
+  direction: "Inbound" | "Outbound";
+}
+
+const storyContact = (name: string) => CONTACTS.find((contact) => contact.name === name)!;
+
+/** Calls that guarantee the demo page has the mockup's qualify/skip mix. */
+export const CONVERSATION_STORY_CALLS: ConversationStoryCall[] = [
+  { id: "grace-first", producerKey: "priya", contact: storyContact("Grace Whitfield"), daysAgo: 0, hourUtc: 13, minuteUtc: 12, durationSeconds: 872, direction: "Outbound" },
+  { id: "priya-first", producerKey: "tomas", contact: storyContact("Priya Deshmukh"), daysAgo: 1, hourUtc: 16, minuteUtc: 35, durationSeconds: 965, direction: "Inbound" },
+  { id: "marcus-prior", producerKey: "devon", contact: storyContact("Marcus Doyle"), daysAgo: 45, hourUtc: 15, minuteUtc: 0, durationSeconds: 180, direction: "Inbound" },
+  { id: "marcus-return", producerKey: "devon", contact: storyContact("Marcus Doyle"), daysAgo: 0, hourUtc: 14, minuteUtc: 40, durationSeconds: 725, direction: "Outbound" },
+  { id: "elena-first", producerKey: "aisha", contact: storyContact("Elena Petrov"), daysAgo: 1, hourUtc: 19, minuteUtc: 5, durationSeconds: 1330, direction: "Inbound" },
+  { id: "harold-prior", producerKey: "marcus", contact: storyContact("Harold Jennings"), daysAgo: 48, hourUtc: 16, minuteUtc: 20, durationSeconds: 200, direction: "Outbound" },
+  { id: "harold-return", producerKey: "marcus", contact: storyContact("Harold Jennings"), daysAgo: 0, hourUtc: 17, minuteUtc: 22, durationSeconds: 708, direction: "Outbound" },
+  { id: "sam-short", producerKey: "priya", contact: storyContact("Sam Okonkwo"), daysAgo: 0, hourUtc: 15, minuteUtc: 5, durationSeconds: 520, direction: "Outbound" },
+  { id: "ben-short", producerKey: "tomas", contact: storyContact("Ben Locke"), daysAgo: 0, hourUtc: 12, minuteUtc: 50, durationSeconds: 372, direction: "Outbound" },
+  { id: "nora-prior", producerKey: "aisha", contact: storyContact("Nora Fitzgerald"), daysAgo: 6, hourUtc: 18, minuteUtc: 0, durationSeconds: 240, direction: "Inbound" },
+  { id: "nora-recent", producerKey: "aisha", contact: storyContact("Nora Fitzgerald"), daysAgo: 1, hourUtc: 20, minuteUtc: 30, durationSeconds: 1124, direction: "Outbound" },
+];
+
+export const HOUSEHOLD_NAMES = [
+  "The Alvarez Family",
+  "Whitmore Household",
+  "Chen-Ortiz Family",
+  "Bregman Household",
+  "Okafor Family",
+  "Delacroix-Reyes Household",
+  "Bennett Household",
+  "The Carter Family",
+  "Davidson Household",
+  "Edwards Family",
+  "Foster Household",
+  "The Green Family",
+  "Hassan Household",
+  "Ito Family",
+  "Jackson Household",
+  "The Khan Family",
+] as const;
+
 /**
  * The mockup's 20 scored calls, verbatim (dates were relative to the mockup's
  * "today", 2026-07-08 → stored as daysAgo offsets from the seed anchor).

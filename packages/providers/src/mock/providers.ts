@@ -30,7 +30,7 @@ import {
   type DemoScoredCall,
 } from "./dataset";
 import { mulberry32, randInt } from "./prng";
-import { PRODUCERS } from "./fixtures";
+import { CONTACTS, PRODUCERS } from "./fixtures";
 import { generateTranscript, generateSummary, SCRIPTED_TRANSCRIPTS } from "./transcripts";
 
 const DAY_MS = 86_400_000;
@@ -70,17 +70,22 @@ export class MockCallProvider implements CallProvider {
     for (let i = 0; i < freshCount; i++) {
       const producer = PRODUCERS[Math.floor(rng() * PRODUCERS.length)];
       if (!producer) continue;
+      const direction = rng() < 0.55 ? "Outbound" : "Inbound";
+      const contacts = CONTACTS.slice(0, -8);
+      const contact = contacts[Math.floor(rng() ** 2 * contacts.length)] ?? contacts[0]!;
       const startTime = new Date(now.getTime() - randInt(rng, 1, 10) * 60_000);
       if (startTime < q.from) continue;
       calls.push({
         rcSessionId: `demo-rc-live-${minuteKey}-${i}`,
         rcExtensionId: producer.rcExtensionId,
-        direction: rng() < 0.55 ? "Outbound" : "Inbound",
+        direction,
         startTime,
         durationSeconds: randInt(rng, 45, 720),
         result: "Call connected",
-        fromNumber: "+15550100",
-        toNumber: `+1555${String(randInt(rng, 1000, 9999))}`,
+        fromNumber: direction === "Outbound" ? "+15550100" : contact.phone,
+        toNumber: direction === "Outbound" ? contact.phone : "+15550100",
+        contactName: contact.name,
+        counterpartyNumber: contact.phone,
         hasRecording: false,
         recordingContentUri: null,
         raw: { demo: true, live: true },
@@ -181,7 +186,7 @@ export class MockTranscriptionProvider implements TranscriptionProvider {
   }
 }
 
-/** Deterministic fixture scores for demo mode (no Anthropic key required). */
+/** Deterministic fixture scores for demo mode (no OpenAI key required). */
 export class MockScorer {
   score(rcSessionId: string): { score: number; steps: DemoScoredCall["steps"]; summary: string } | null {
     const scored = getDemoDataset().scoredCalls.find((s) => s.rcSessionId === rcSessionId);
@@ -201,7 +206,7 @@ export class MockScorer {
 
 /**
  * CallScorer adapter over MockScorer for the demo scoring pipeline: fixture
- * scorecards resolved by rcSessionId, no Anthropic key required. The scripted
+ * scorecards resolved by rcSessionId, no OpenAI key required. The scripted
  * calls reproduce the exact seeded scores, so a demo pipeline re-run is a
  * byte-identical no-op.
  */
@@ -230,7 +235,7 @@ export class MockCallScorer implements CallScorer {
 /**
  * Demo daily-summary generator: builds the three deterministic variants from
  * real DB aggregates and rotates to the one after whichever is currently
- * stored (mirrors the mockup's Regenerate button). No Anthropic key required.
+ * stored (mirrors the mockup's Regenerate button). No OpenAI key required.
  */
 export class MockSummaryGenerator implements SummaryGenerator {
   async generateSummary(

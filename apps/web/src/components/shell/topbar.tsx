@@ -10,6 +10,7 @@ import { IconCalendar, IconInfo } from "../icons";
 const TITLES: Record<string, string> = {
   "/": "Overview",
   "/calls": "Calls",
+  "/households": "Households",
   "/quotes-policies": "Quotes & Policies",
   "/producers": "Producers",
   "/reports": "Reports",
@@ -38,7 +39,7 @@ export function Topbar({ todayLabel, demo, userName, userEmail }: {
             Demo Mode - Sample Data Only
           </span>
         )}
-        {pathname === "/" && <RangeSelector />}
+        {(pathname === "/" || pathname === "/households") && <RangeSelector pathname={pathname} />}
         <UserMenu userName={userName} userEmail={userEmail} />
       </div>
     </header>
@@ -46,7 +47,7 @@ export function Topbar({ todayLabel, demo, userName, userEmail }: {
 }
 
 /** Date-range preset selector; writes ?days=N to the URL (day-aligned ranges). */
-function RangeSelector() {
+function RangeSelector({ pathname }: { pathname: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -95,7 +96,7 @@ function RangeSelector() {
                 setOpen(false);
                 const params = new URLSearchParams(searchParams);
                 params.set("days", String(p.days));
-                router.replace(`/?${params.toString()}`);
+                router.replace(`${pathname}?${params.toString()}`);
               }}
               className={`block w-full cursor-pointer rounded-sm px-2.5 py-[7px] text-left text-[12.5px] ${
                 p.days === current.days ? "bg-teal-soft font-semibold text-teal" : "text-ink-secondary hover:bg-sunken"

@@ -1,4 +1,4 @@
-// Anthropic daily-summary generator.
+// OpenAI daily-summary generator.
 //
 // Turns the last-30-day aggregates (built by @anchorline/metrics) into the
 // dashboard's AI panel: one plain-language paragraph plus exactly three
@@ -9,14 +9,16 @@
 import { z } from "zod";
 import type { GeneratedSummary, SummaryGenerator, SummaryStats } from "../types";
 import {
-  anthropicConfigFromEnv,
-  completeMessages,
-  type AnthropicConfig,
-  type AnthropicMessage,
+  completeChat,
+  openAIConfigFromEnv,
   type FetchLike,
-} from "./anthropic";
+  type OpenAIConfig,
+  type OpenAIMessage,
+} from "./openai";
 
-const MAX_OUTPUT_TOKENS = 1024;
+// On gpt-5.x, max_completion_tokens includes hidden reasoning tokens, so 1024
+// could be exhausted before any visible output.
+const MAX_OUTPUT_TOKENS = 2048;
 
 export const SUMMARY_SYSTEM_PROMPT = `You are writing the daily AI summary for a P&C insurance agency owner's performance dashboard. You are given a JSON object of the team's last-30-day stats: totals (calls, talk minutes, quotes, policies, premium dollars, close rate and its period-over-period delta in points) and per-producer numbers (process score = average AI call-score 0-100, previous period's process score, close rate %, premium dollars, and a manual "ramping" flag for recently hired producers).
 
@@ -56,9 +58,9 @@ export function parseSummaryJson(text: string): { summaryText: string; insights:
   return { summaryText: parsed.data.summary, insights: parsed.data.insights };
 }
 
-export class AnthropicSummaryGenerator implements SummaryGenerator {
+export class OpenAISummaryGenerator implements SummaryGenerator {
   constructor(
-    private readonly config: AnthropicConfig | null = anthropicConfigFromEnv(),
+    private readonly config: OpenAIConfig | null = openAIConfigFromEnv(),
     private readonly fetchImpl: FetchLike = fetch,
   ) {}
 
@@ -68,18 +70,18 @@ export class AnthropicSummaryGenerator implements SummaryGenerator {
   ): Promise<GeneratedSummary> {
     if (!this.config) {
       throw new Error(
-        "Anthropic summary generation is not configured — set ANTHROPIC_API_KEY (or run with DATA_MODE=demo).",
+        "OpenAI summary generation is not configured — set OPENAI_API_KEY (or run with DATA_MODE=demo).",
       );
     }
     let content = `Team stats for the last 30 days:\n${JSON.stringify(stats, null, 2)}`;
     if (opts?.previousSummaryText) {
       content += `\n\nThe previous summary read: "${opts.previousSummaryText}"\nTake a fresh angle rather than repeating it.`;
     }
-    const messages: AnthropicMessage[] = [{ role: "user", content }];
+    const messages: OpenAIMessage[] = [{ role: "user", content }];
 
     // One correction retry: feed the invalid output back and ask again.
     for (let attempt = 0; ; attempt++) {
-      const { text } = await completeMessages(this.config, this.fetchImpl, {
+      const { text } = await completeChat(this.config, this.fetchImpl, {
         system: SUMMARY_SYSTEM_PROMPT,
         messages,
         maxTokens: MAX_OUTPUT_TOKENS,
@@ -87,7 +89,7 @@ export class AnthropicSummaryGenerator implements SummaryGenerator {
       const parsed = parseSummaryJson(text);
       if (parsed) return { summaryText: parsed.summaryText, insights: parsed.insights, model: this.config.model };
       if (attempt >= 1) {
-        throw new Error(`Anthropic summary generator returned invalid JSON twice: ${text.slice(0, 200)}`);
+        throw new Error(`OpenAI summary generator returned invalid JSON twice: ${text.slice(0, 200)}`);
       }
       messages.push(
         { role: "assistant", content: text },

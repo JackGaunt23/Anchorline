@@ -2,7 +2,7 @@
 // Shared by the worker's 7 AM generate_daily_summary job and the dashboard's
 // Regenerate button so both produce identical rows.
 //
-// The generator itself (Anthropic in live mode, rotating demo variants in
+// The generator itself (OpenAI in live mode, rotating demo variants in
 // demo mode) is passed in rather than imported: packages/db depends on
 // packages/providers (the seed uses the mock dataset), so a providers import
 // here would close a package cycle. The SummaryGenerator shape below is

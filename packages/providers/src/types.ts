@@ -24,6 +24,9 @@ export interface NormalizedCall {
   result: string | null;
   fromNumber: string | null;
   toNumber: string | null;
+  /** Customer side: `to` on outbound, `from` on inbound; name comes from RingCentral caller ID when present. */
+  contactName: string | null;
+  counterpartyNumber: string | null;
   hasRecording: boolean;
   recordingContentUri: string | null;
   raw?: unknown;
@@ -68,6 +71,7 @@ export const AZ_LEAD_STATUS: Record<number, string> = {
 export interface NormalizedLead {
   azLeadId: string;
   azProducerId: string | null;
+  contactName: string | null;
   statusCode: number;
   status: string;
   source: string | null;
@@ -115,7 +119,7 @@ export interface TranscriptionProvider {
 }
 
 // ---------------------------------------------------------------------------
-// Call scoring result (produced by the Anthropic scorer or the mock scorer;
+// Call scoring result (produced by the OpenAI scorer or the mock scorer;
 // validated against this exact shape before persisting)
 // ---------------------------------------------------------------------------
 
@@ -148,7 +152,7 @@ export interface CallScorer {
 }
 
 // ---------------------------------------------------------------------------
-// Daily summary generation (Anthropic in live mode, rotating deterministic
+// Daily summary generation (OpenAI in live mode, rotating deterministic
 // variants in demo mode). SummaryStats is structurally identical to the shape
 // @anchorline/metrics builds from DB aggregates — duplicated deliberately, as
 // a metrics import here would create a package cycle (db already depends on

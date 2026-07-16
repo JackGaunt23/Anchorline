@@ -48,6 +48,8 @@ export async function runRingCentralSync(agencyId: string): Promise<RingCentralS
           result: call.result,
           fromNumber: call.fromNumber,
           toNumber: call.toNumber,
+          contactName: call.contactName,
+          counterpartyNumber: call.counterpartyNumber,
           hasRecording: call.hasRecording,
           recordingContentUri: call.recordingContentUri,
           raw: call.raw as Prisma.InputJsonValue,

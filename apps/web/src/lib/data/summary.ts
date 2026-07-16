@@ -1,7 +1,7 @@
 // AI daily summary: read the latest generated summary, and regenerate on
 // demand. Generation + persistence are shared with the worker's 7 AM
 // generate_daily_summary job (generateDailySummary in @anchorline/metrics);
-// the generator is Anthropic in live mode and the rotating deterministic
+// the generator is OpenAI in live mode and the rotating deterministic
 // demo builder in demo mode, so Regenerate works with zero credentials.
 
 import { prisma, type DailySummary } from "@anchorline/db";

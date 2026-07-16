@@ -107,8 +107,8 @@ interface TranscriptionProvider {
   re-login on 401), typed via `openapi-typescript` generation from the published spec,
   token-bucket throttle ≤ 25 req/min (documented limit is 30/min daytime, 60/min
   10PM–4AM CT).
-- Scoring and daily summaries call the Anthropic API directly (claude-sonnet-4-6 or
-  newer) behind small functions with zod-validated structured JSON output and a versioned
+- Scoring and daily summaries call the OpenAI API directly (gpt-5.1) behind small
+  functions with zod-validated structured JSON output and a versioned
   prompt. Demo mode uses a `MockScorer` (fixture scorecards) so no key is needed.
 
 ### Verified AgencyZoom endpoint facts (from the OpenAPI spec)
@@ -177,7 +177,7 @@ via API.
 - **Transcription job:** download recording audio (`contentUri`, same bearer token) →
   Deepgram (`DEEPGRAM_API_KEY`) behind `TranscriptionProvider`. Recordings can lag the
   call log entry: a 404 re-schedules the job with backoff rather than failing it.
-- **Scoring job:** transcript → Anthropic rubric prompt (versioned) → strict JSON
+- **Scoring job:** transcript → OpenAI rubric prompt (versioned) → strict JSON
   `{score 0-100, rapport, discovery_questions, quote_presented, objection_handling,
   close_attempted, summary}` validated with zod; one retry on invalid JSON, then failed.
   The summary must be one specific, plain-language sentence about what happened.
@@ -288,9 +288,10 @@ target.
 - **Phase 3** — AgencyZoom live provider (generated types) + CRM sync + quote budget;
   revisit the close-rate denominator with real data.
 - **Phase 4** — transcription + scoring pipeline (demo mode via mock transcripts/scorer;
-  live via Deepgram + Anthropic).
+  live via Deepgram + OpenAI).
 - **Phase 5** — daily summary + Regenerate, Railway deploy configs (web, worker,
   Postgres), README with setup/runbook.
+- **Phase 6** — switched the scoring and daily-summary AI vendor to OpenAI.
 
 ---
 

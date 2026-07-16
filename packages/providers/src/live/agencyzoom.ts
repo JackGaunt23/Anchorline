@@ -228,6 +228,7 @@ export function normalizeAzLead(lead: AzLead): NormalizedLead | null {
   return {
     azLeadId: String(lead.id),
     azProducerId: lead.assignedTo != null ? String(lead.assignedTo) : null,
+    contactName: `${lead.firstname ?? ""} ${lead.lastname ?? ""}`.trim() || null,
     statusCode,
     status: AZ_LEAD_STATUS[statusCode] ?? "unknown",
     source: lead.leadSourceName ?? null,

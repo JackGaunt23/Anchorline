@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateDemoDataset, demoAnchor } from "../src/mock";
-import { PRODUCERS, SCRIPTED_CALLS } from "../src/mock/fixtures";
+import { CONVERSATION_STORY_CALLS, PRODUCERS, SCRIPTED_CALLS } from "../src/mock/fixtures";
 import { SCRIPTED_TRANSCRIPTS } from "../src/mock/transcripts";
 
 const DAY_MS = 86_400_000;
@@ -93,6 +93,25 @@ describe("demo dataset reproduces the mockup's last-30-day numbers", () => {
       expect(call?.durationSeconds).toBe(sc.durationSeconds);
       expect(call?.hasRecording).toBe(true);
     }
+  });
+
+  it("keeps at least three qualifying first-contact stories in the latest two days", () => {
+    const recentLongStories = CONVERSATION_STORY_CALLS.filter(
+      (story) => story.daysAgo <= 1 && story.durationSeconds > 600,
+    );
+    const firstContacts = recentLongStories.filter((story) => {
+      const call = dataset.calls.find(
+        (candidate) => candidate.rcSessionId === `demo-rc-conversation-${story.id}`,
+      );
+      if (!call?.counterpartyNumber) return false;
+      return !dataset.calls.some(
+        (candidate) =>
+          candidate.counterpartyNumber === call.counterpartyNumber &&
+          candidate.startTime < call.startTime,
+      );
+    });
+
+    expect(firstContacts.length).toBeGreaterThanOrEqual(3);
   });
 
   it("prior-window volumes produce the mockup deltas (within rounding)", () => {

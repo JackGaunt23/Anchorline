@@ -17,8 +17,12 @@ import {
   PRODUCT_LINE_WEIGHTS,
   CARRIERS,
   LEAD_SOURCES,
+  CONTACTS,
+  CONVERSATION_STORY_CALLS,
+  HOUSEHOLD_NAMES,
   type ProducerFixture,
   type RubricSteps,
+  type ContactFixture,
 } from "./fixtures";
 import { SCRIPTED_TRANSCRIPTS, generateTranscript, generateSummary } from "./transcripts";
 import type { NormalizedCall, NormalizedLead, NormalizedQuote, SummaryInsight, SummaryStats } from "../types";
@@ -64,6 +68,37 @@ function businessTime(rng: Rng, anchor: Date, daysAgo: number): Date {
   const day = new Date(anchor.getTime() - (daysAgo + 1) * DAY_MS);
   day.setUTCHours(13 + Math.floor(rng() * 9), Math.floor(rng() * 60), Math.floor(rng() * 60), 0);
   return day;
+}
+
+function storyTime(anchor: Date, daysAgo: number, hourUtc: number, minuteUtc: number): Date {
+  const day = new Date(anchor.getTime() - (daysAgo + 1) * DAY_MS);
+  day.setUTCHours(hourUtc, minuteUtc, 0, 0);
+  return day;
+}
+
+const STANDARD_CONTACTS = CONTACTS.slice(0, -8);
+
+/** Squaring the draw heavily reuses early contacts while retaining a long tail. */
+function pickContact(rng: Rng): ContactFixture {
+  const index = Math.floor(rng() ** 2 * STANDARD_CONTACTS.length);
+  return STANDARD_CONTACTS[index] ?? STANDARD_CONTACTS[0]!;
+}
+
+function contactFields(direction: "Inbound" | "Outbound", contact: ContactFixture) {
+  return {
+    fromNumber: direction === "Outbound" ? "+15550100" : contact.phone,
+    toNumber: direction === "Outbound" ? contact.phone : "+15550100",
+    contactName: contact.name,
+    counterpartyNumber: contact.phone,
+  };
+}
+
+function householdName(azLeadId: string): string {
+  const index = Math.max(0, Number(azLeadId) - 50_000);
+  if (index < HOUSEHOLD_NAMES.length) return HOUSEHOLD_NAMES[index]!;
+  const contact = STANDARD_CONTACTS[index % STANDARD_CONTACTS.length] ?? STANDARD_CONTACTS[0]!;
+  const surname = contact.name.split(/\s+/).at(-1) ?? "Sample";
+  return `${surname} Household`;
 }
 
 /** Per-day weights over a 30-day window: weekdays busy, weekends quiet. */
@@ -142,6 +177,12 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
       const targets = windowIdx === 0 ? producer.current : producer.prior;
       const offsetDays = windowIdx * 30;
       const windowScripted = windowIdx === 0 ? scripted : [];
+      const windowStories = CONVERSATION_STORY_CALLS.filter(
+        (story) =>
+          story.producerKey === producer.key &&
+          story.daysAgo >= offsetDays &&
+          story.daysAgo < offsetDays + 30,
+      );
 
       // --- Scored calls -------------------------------------------------
       // Roughly 6% of calls get recorded + scored, capped for sanity.
@@ -158,15 +199,16 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
         const startTime = businessTime(rng, anchor, sc.daysAgo + offsetDays);
         const rcSessionId = `demo-rc-${sc.id}`;
         talkBudget -= sc.durationSeconds;
+        const direction = rng() < 0.55 ? "Outbound" : "Inbound";
+        const contact = pickContact(rng);
         pushCall({
           rcSessionId,
           rcExtensionId: producer.rcExtensionId,
-          direction: rng() < 0.55 ? "Outbound" : "Inbound",
+          direction,
           startTime,
           durationSeconds: sc.durationSeconds,
           result: "Call connected",
-          fromNumber: "+15550100",
-          toNumber: `+1555${String(1000 + Math.floor(rng() * 9000))}`,
+          ...contactFields(direction, contact),
           hasRecording: true,
           recordingContentUri: `demo://recording/${rcSessionId}`,
           raw: { demo: true, scripted: sc.id },
@@ -190,15 +232,16 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
         const rcSessionId = `demo-rc-${producer.key}-w${windowIdx}-s${i}`;
         const steps = stepsForScore(rng, score);
         talkBudget -= durationSeconds;
+        const direction = rng() < 0.55 ? "Outbound" : "Inbound";
+        const contact = pickContact(rng);
         pushCall({
           rcSessionId,
           rcExtensionId: producer.rcExtensionId,
-          direction: rng() < 0.55 ? "Outbound" : "Inbound",
+          direction,
           startTime: businessTime(rng, anchor, daysAgo),
           durationSeconds,
           result: "Call connected",
-          fromNumber: "+15550100",
-          toNumber: `+1555${String(1000 + Math.floor(rng() * 9000))}`,
+          ...contactFields(direction, contact),
           hasRecording: true,
           recordingContentUri: `demo://recording/${rcSessionId}`,
           raw: { demo: true },
@@ -213,8 +256,29 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
         });
       });
 
+      // Hand-placed, unscored calls make the Calls page tell the same stories
+      // as the mockup without changing any producer's call/talk-time budget.
+      for (const story of windowStories) {
+        talkBudget -= story.durationSeconds;
+        pushCall({
+          rcSessionId: `demo-rc-conversation-${story.id}`,
+          rcExtensionId: producer.rcExtensionId,
+          direction: story.direction,
+          startTime: storyTime(anchor, story.daysAgo, story.hourUtc, story.minuteUtc),
+          durationSeconds: story.durationSeconds,
+          result: "Call connected",
+          ...contactFields(story.direction, story.contact),
+          hasRecording: false,
+          recordingContentUri: null,
+          raw: { demo: true, conversationStory: story.id },
+        });
+      }
+
       // --- Plain (unscored) calls ---------------------------------------
-      const plainCount = Math.max(0, targets.calls - windowScripted.length - extraScores.length);
+      const plainCount = Math.max(
+        0,
+        targets.calls - windowScripted.length - extraScores.length - windowStories.length,
+      );
       const perDay = distributeInt(plainCount, dayWeights(rng, anchor, offsetDays));
       const plainDurations = durations(rng, plainCount, Math.max(plainCount * 30, talkBudget));
       let di = 0;
@@ -222,18 +286,26 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
         for (let i = 0; i < n; i++) {
           const durationSeconds = plainDurations[di] ?? 60;
           const inbound = rng() < 0.45;
+          const direction = inbound ? "Inbound" : "Outbound";
+          const contact = pickContact(rng);
           // Label very short calls as missed, but keep their (small) duration
           // so per-producer talk-time totals stay exact.
           const missed = inbound && durationSeconds < 40 && rng() < 0.5;
+          const outboundResult = !inbound ? rng() : 1;
           pushCall({
             rcSessionId: `demo-rc-${producer.key}-w${windowIdx}-c${di}`,
             rcExtensionId: producer.rcExtensionId,
-            direction: inbound ? "Inbound" : "Outbound",
+            direction,
             startTime: businessTime(rng, anchor, offsetDays + day),
             durationSeconds,
-            result: missed ? "Missed" : "Call connected",
-            fromNumber: "+15550100",
-            toNumber: `+1555${String(1000 + Math.floor(rng() * 9000))}`,
+            result: missed
+              ? "Missed"
+              : outboundResult < 0.25
+                ? "Voicemail"
+                : outboundResult < 0.35
+                  ? "No Answer"
+                  : "Call connected",
+            ...contactFields(direction, contact),
             hasRecording: false,
             recordingContentUri: null,
             raw: { demo: true },
@@ -256,6 +328,7 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
           leads.push({
             azLeadId,
             azProducerId: producer.azProducerId,
+            contactName: householdName(azLeadId),
             statusCode: 1,
             status: "quoted",
             source: pickWeighted(rng, LEAD_SOURCES, [0.35, 0.25, 0.2, 0.1, 0.1]),
@@ -291,6 +364,7 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
         leads.push({
           azLeadId,
           azProducerId: producer.azProducerId,
+          contactName: householdName(azLeadId),
           statusCode,
           status: statusCode === 0 ? "new" : statusCode === 4 ? "contacted" : "lost",
           source: pickWeighted(rng, LEAD_SOURCES, [0.35, 0.25, 0.2, 0.1, 0.1]),
@@ -352,15 +426,16 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
   // A shared office line no identity mapping covers; visible in Settings.
   for (let i = 0; i < 9; i++) {
     const daysAgo = 65 + Math.floor(rng() * 15);
+    const direction = rng() < 0.5 ? "Inbound" : "Outbound";
+    const contact = pickContact(rng);
     pushCall({
       rcSessionId: `demo-rc-office-${i}`,
       rcExtensionId: "199",
-      direction: rng() < 0.5 ? "Inbound" : "Outbound",
+      direction,
       startTime: businessTime(rng, anchor, daysAgo),
       durationSeconds: 60 + Math.floor(rng() * 400),
       result: "Call connected",
-      fromNumber: "+15550100",
-      toNumber: `+1555${String(1000 + Math.floor(rng() * 9000))}`,
+      ...contactFields(direction, contact),
       hasRecording: false,
       recordingContentUri: null,
       raw: { demo: true, note: "shared office line" },
@@ -411,6 +486,7 @@ export function generateDemoDataset(anchor: Date): DemoDataset {
         leads.push({
           azLeadId,
           azProducerId: producer.azProducerId,
+          contactName: householdName(azLeadId),
           statusCode: 2,
           status: "won",
           source: pickWeighted(rng, LEAD_SOURCES, [0.35, 0.25, 0.2, 0.1, 0.1]),

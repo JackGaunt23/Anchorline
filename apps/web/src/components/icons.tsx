@@ -158,6 +158,17 @@ export const IconNavCalls = (p: IconProps) =>
     </>,
   );
 
+export const IconNavHouse = (p: IconProps) =>
+  base(
+    p,
+    1.8,
+    <>
+      <path d="M4 11.5L12 4l8 7.5" />
+      <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" />
+      <path d="M10 20v-6h4v6" />
+    </>,
+  );
+
 export const IconNavPerson = (p: IconProps) =>
   base(
     p,

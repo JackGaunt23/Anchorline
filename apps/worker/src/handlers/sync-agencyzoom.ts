@@ -143,6 +143,7 @@ function leadChanged(existing: Lead, lead: NormalizedLead): boolean {
   return (
     existing.statusCode !== lead.statusCode ||
     existing.azProducerId !== lead.azProducerId ||
+    existing.contactName !== lead.contactName ||
     existing.source !== lead.source ||
     existing.quotedPremiumCents !== lead.quotedPremiumCents ||
     existing.soldPremiumCents !== lead.soldPremiumCents ||
@@ -172,6 +173,7 @@ function mayHaveQuotes(lead: NormalizedLead): boolean {
 async function upsertLead(agencyId: string, lead: NormalizedLead): Promise<Lead> {
   const data = {
     azProducerId: lead.azProducerId,
+    contactName: lead.contactName,
     statusCode: lead.statusCode,
     status: lead.status,
     source: lead.source,

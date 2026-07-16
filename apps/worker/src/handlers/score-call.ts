@@ -1,6 +1,6 @@
 // Call scoring (job type "score_call", payload { callId }).
 //
-// Feeds a completed transcript to the CallScorer (Anthropic rubric prompt in
+// Feeds a completed transcript to the CallScorer (OpenAI rubric prompt in
 // live mode, fixture scorecards in demo mode) and persists the validated
 // result to call_scores. Idempotent: a call with an existing score is left
 // untouched. Invalid model output is retried once inside the scorer; a
